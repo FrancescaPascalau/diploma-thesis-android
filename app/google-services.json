@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "222716535598",
+    "firebase_url": "https://cartare-teren.firebaseio.com",
+    "project_id": "cartare-teren",
+    "storage_bucket": "cartare-teren.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:222716535598:android:a34a83defa7ff2b5",
+        "android_client_info": {
+          "package_name": "francesca.pascalau.thesis"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "222716535598-j8cusnvq9nv8bkav4gpi2bgk4kki9kje.apps.googleusercontent.com",
+          "client_type": 3
+        },
+        {
+          "client_id": "222716535598-j8cusnvq9nv8bkav4gpi2bgk4kki9kje.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZlTzNudVqSP4eWRVhjIdlVCVq9Vs962k"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
