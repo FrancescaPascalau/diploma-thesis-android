@@ -53,6 +53,7 @@ import java.util.UUID;
 import francesca.pascalau.thesis.R;
 import francesca.pascalau.thesis.common.PermissionUtils;
 import francesca.pascalau.thesis.common.Position;
+import francesca.pascalau.thesis.common.RequestOperations;
 
 public class MapsActivity extends AppCompatActivity
         implements
@@ -388,6 +389,27 @@ public class MapsActivity extends AppCompatActivity
             for (LatLng location : trackedLocations) {
                 locations.add(new Position(location.latitude, location.longitude));
             }
+
+            /**
+             * Temporary request to save locations
+             * TODO: Move from here
+             */
+            String url = "http://192.168.0.167:1997/v1/coordinates/saveAll";
+            String url2 = "http://192.168.0.167:1997/v1/coordinates/findAll";
+            String url3 = "http://192.168.0.167:1997/v1/surfaces/addArea/" + String.valueOf(area);
+            RequestOperations operations = RequestOperations.getInstance(this);
+
+            operations.postRequestForArray(url, locations);
+
+            operations.getRequestForArray(url2, locations);
+
+            operations.postRequest(url3);
+
+            /**
+             * End of temporary request
+             */
+
+
             String uniqueID = UUID.randomUUID().toString();
             trackedLocationsMap.put(uniqueID, locations);
             Log.e(TAG, " Here " + trackedLocationsMap);
@@ -434,14 +456,15 @@ public class MapsActivity extends AppCompatActivity
     }
 
     private void sendLocations() {
-
         if (auth.getCurrentUser() != null) {
             locationsRef.setValue(trackedLocationsMap);
+            // Aici testez trimitere HashMap-ului la back-end
             Log.e(TAG, "Sent Locations.....");
         } else {
             Log.e(TAG, "Could not sent locations (user not logged in)");
             Toast.makeText(this, "Could not sent locations (user not logged in)", Toast.LENGTH_SHORT).show();
         }
+
 
     }
 }

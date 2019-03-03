@@ -3,7 +3,7 @@ package francesca.pascalau.thesis.common;
 import java.io.Serializable;
 
 /**
- * Created by Francesca on 21.06.2018.
+ * Created by Francesca on 04.01.2019.
  */
 
 public class Position implements Serializable {
@@ -44,6 +44,4 @@ public class Position implements Serializable {
                 ", longitude= " + longitude +
                 '}';
     }
-
-
 }
