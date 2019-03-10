@@ -39,6 +39,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
+import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
 
 import java.text.DateFormat;
@@ -48,13 +49,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 import francesca.pascalau.thesis.R;
 import francesca.pascalau.thesis.common.PermissionUtils;
 import francesca.pascalau.thesis.common.Position;
 import francesca.pascalau.thesis.common.RequestOperations;
+import francesca.pascalau.thesis.common.Surface;
 
 public class MapsActivity extends AppCompatActivity
         implements
@@ -387,47 +388,37 @@ public class MapsActivity extends AppCompatActivity
             // Add to the collective hash map
             Log.e(TAG, area + " -- " + trackedLocations);
 
+            ArrayList<Position> positions = new ArrayList<>();
+            for (LatLng location : trackedLocations) {
+                positions.add(new Position(location.latitude, location.longitude));
+            }
 
             /**
              * Temporary request to save locations
              * TODO: Move from here
              */
-            String url = "http://192.168.0.167:1997/v1/coordinates/saveAll";
-            String url2 = "http://192.168.0.167:1997/v1/coordinates/findAll";
-            String url3 = "http://192.168.0.167:1997/v1/surfaces/addArea/" + String.valueOf(area);
+            String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
             RequestOperations operations = RequestOperations.getInstance(this);
 
-            Consumer<String> areaIdConsumer = id -> {
-                UUID uuid = UUID.fromString(id.substring(1, id.length() - 1));
+            Consumer<String> consumer = surface -> {
+                Surface mySurface = new Gson().fromJson(surface, Surface.class);
 
-                Log.e(TAG, "Area inserted");
-                Toast.makeText(MapsActivity.this, "Area inserted" + uuid, Toast.LENGTH_LONG);
-
-
-                ArrayList<Position> positions = new ArrayList<>();
-                for (LatLng location : trackedLocations) {
-                    positions.add(new Position(location.latitude, location.longitude));
-                }
-
-                //String uniqueID = UUID.randomUUID().toString();
-                if (uuid.toString() != null) {
-                    trackedLocationsMap.put(uuid.toString(), positions);
-                }
-
-                operations.postRequestForArray(url, positions);
-                sendLocations();
-                trackedLocations = new ArrayList<>();
+                Log.e(TAG, mySurface.toString());
+                Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
             };
 
-            operations.postRequestWithResponseHandler(url3, areaIdConsumer);
+            Surface surface = new Surface(area, positions);
+            operations.postRequestForObject(urlSaveSurface, surface, consumer);
 
-            // operations.getRequestForArray(url2, locations);
+            /*operations.getRequestForArray(url2, locations);*/
 
             /**
              * End of temporary request
              */
 
+            sendLocations();
             stopLocationUpdates();
+            trackedLocations = new ArrayList<>();
 
             findViewById(R.id.location_start).setVisibility(View.VISIBLE);
             findViewById(R.id.location_stop).setVisibility(View.GONE);

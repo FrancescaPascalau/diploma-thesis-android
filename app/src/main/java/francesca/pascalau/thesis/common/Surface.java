@@ -2,39 +2,37 @@ package francesca.pascalau.thesis.common;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 public class Surface implements Serializable {
 
-    private UUID id;
+    private UUID id_surface;
     private BigDecimal area;
-    private Set<Position> coordinates;
+    private List<Position> coordinates;
 
-    public Surface(BigDecimal area, Set<Position> coordinates) {
-        this.id = UUID.randomUUID();
+    public Surface(BigDecimal area, List<Position> coordinates) {
         this.area = area;
         this.coordinates = coordinates;
     }
 
-    public Surface(Integer area, Set<Position> coordinates) {
-        this.id = UUID.randomUUID();
+    public Surface(Integer area, List<Position> coordinates) {
         this.area = BigDecimal.valueOf(area);
         this.coordinates = coordinates;
     }
 
-    public Surface(UUID id, BigDecimal area, Set<Position> coordinates) {
-        this.id = id;
+    public Surface(UUID id_surface, BigDecimal area, List<Position> coordinates) {
+        this.id_surface = id_surface;
         this.area = area;
         this.coordinates = coordinates;
     }
 
-    public UUID getId() {
-        return id;
+    public UUID getId_surface() {
+        return id_surface;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void setId_surface(UUID id_surface) {
+        this.id_surface = id_surface;
     }
 
     public BigDecimal getArea() {
@@ -45,18 +43,18 @@ public class Surface implements Serializable {
         this.area = area;
     }
 
-    public Set<Position> getCoordinates() {
+    public List<Position> getCoordinates() {
         return coordinates;
     }
 
-    public void setCoordinates(Set<Position> coordinates) {
+    public void setCoordinates(List<Position> coordinates) {
         this.coordinates = coordinates;
     }
 
     @Override
     public String toString() {
         return "Surface{" +
-                "id=" + id +
+                "id_surface=" + id_surface +
                 ", area=" + area +
                 '}';
     }

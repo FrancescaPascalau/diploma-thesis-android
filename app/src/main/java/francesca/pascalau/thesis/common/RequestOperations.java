@@ -48,8 +48,8 @@ public class RequestOperations {
         doStringRequest(url, Request.Method.POST);
     }
 
-    public <T> void postRequestWithResponseHandler(String url, Consumer<T> responseHandler) {
-        doStringRequestWithResponseHandler(url, Request.Method.POST, responseHandler);
+    public <T> void postRequest(String url, Consumer<T> responseHandler) {
+        doStringRequest(url, Request.Method.POST, responseHandler);
     }
 
     public void getRequest(String url) {
@@ -67,6 +67,16 @@ public class RequestOperations {
     // Requests for JsonObject
     public void postRequestForObject(String url) {
         doJsonObjectRequest(url, null, Request.Method.POST);
+    }
+
+    public <T> void postRequestForObject(String url, T t) {
+        JSONObject jsonObject = getJsonObject(t);
+        doJsonObjectRequest(url, jsonObject, Request.Method.POST);
+    }
+
+    public <T> void postRequestForObject(String url, T t, Consumer<String> responseHandler) {
+        JSONObject jsonObject = getJsonObject(t);
+        doJsonObjectRequest(url, jsonObject, Request.Method.POST, responseHandler);
     }
 
     public void getRequestForObject(String url) {
@@ -125,6 +135,25 @@ public class RequestOperations {
         return array;
     }
 
+    private <T> JSONObject getJsonObject(T object) {
+        // RequestQueue specifically needs a JSONObject object as the request body
+        // Due to this, we need to first make some conversions on the originally
+        // received <T> object.
+        JSONObject jsonObject = null;
+        try {
+            String x = new Gson().toJson(object);
+
+            // Default JSONObject constructor can only receive primitive type inputs
+            // Because of this, we need to create first a String object
+            // and pass that object as argument to the JSONObject constructor
+            jsonObject = new JSONObject(x);
+        } catch (JSONException e) {
+            final String message = "Could not convert object to JSON.";
+            Log.e(TAG, message);
+        }
+        return jsonObject;
+    }
+
     private void doJsonArrayRequest(String url, JSONArray array, int method) {
         JsonArrayRequest jsonRequest = new JsonArrayRequest
                 (method, url, array,
@@ -157,6 +186,22 @@ public class RequestOperations {
         requestQueue.add(jsonRequest);
     }
 
+    private void doJsonObjectRequest(String url, JSONObject object, int method, Consumer<String> consumer) {
+        JsonObjectRequest jsonRequest = new JsonObjectRequest
+                (method, url, object,
+                        response -> {
+                            consumer.accept(response.toString());
+                            Log.e(TAG, response.toString());
+                        },
+                        error -> {
+                            // TODO: Handle error
+                            Log.e(TAG, error.toString());
+                        }
+                );
+        // Add the request to the RequestQueue.
+        requestQueue.add(jsonRequest);
+    }
+
     private void doStringRequest(String url, int method) {
         StringRequest stringRequest = new StringRequest
                 (method, url,
@@ -173,7 +218,7 @@ public class RequestOperations {
         requestQueue.add(stringRequest);
     }
 
-    private <T> void doStringRequestWithResponseHandler(String url, int method, Consumer<T> responseHandler) {
+    private <T> void doStringRequest(String url, int method, Consumer<T> responseHandler) {
         StringRequest jsonRequest = new StringRequest
                 (method, url,
                         response -> {
