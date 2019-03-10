@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import francesca.pascalau.thesis.R;
 import francesca.pascalau.thesis.common.PermissionUtils;
@@ -385,10 +386,7 @@ public class MapsActivity extends AppCompatActivity
 
             // Add to the collective hash map
             Log.e(TAG, area + " -- " + trackedLocations);
-            ArrayList<Position> locations = new ArrayList<>();
-            for (LatLng location : trackedLocations) {
-                locations.add(new Position(location.latitude, location.longitude));
-            }
+
 
             /**
              * Temporary request to save locations
@@ -399,24 +397,37 @@ public class MapsActivity extends AppCompatActivity
             String url3 = "http://192.168.0.167:1997/v1/surfaces/addArea/" + String.valueOf(area);
             RequestOperations operations = RequestOperations.getInstance(this);
 
-            operations.postRequestForArray(url, locations);
+            Consumer<String> areaIdConsumer = id -> {
+                UUID uuid = UUID.fromString(id.substring(1, id.length() - 1));
 
-            operations.getRequestForArray(url2, locations);
+                Log.e(TAG, "Area inserted");
+                Toast.makeText(MapsActivity.this, "Area inserted" + uuid, Toast.LENGTH_LONG);
 
-            operations.postRequest(url3);
+
+                ArrayList<Position> positions = new ArrayList<>();
+                for (LatLng location : trackedLocations) {
+                    positions.add(new Position(location.latitude, location.longitude));
+                }
+
+                //String uniqueID = UUID.randomUUID().toString();
+                if (uuid.toString() != null) {
+                    trackedLocationsMap.put(uuid.toString(), positions);
+                }
+
+                operations.postRequestForArray(url, positions);
+                sendLocations();
+                trackedLocations = new ArrayList<>();
+            };
+
+            operations.postRequestWithResponseHandler(url3, areaIdConsumer);
+
+            // operations.getRequestForArray(url2, locations);
 
             /**
              * End of temporary request
              */
 
-
-            String uniqueID = UUID.randomUUID().toString();
-            trackedLocationsMap.put(uniqueID, locations);
-            Log.e(TAG, " Here " + trackedLocationsMap);
-
-            sendLocations();
             stopLocationUpdates();
-            trackedLocations = new ArrayList<>();
 
             findViewById(R.id.location_start).setVisibility(View.VISIBLE);
             findViewById(R.id.location_stop).setVisibility(View.GONE);
@@ -456,7 +467,7 @@ public class MapsActivity extends AppCompatActivity
     }
 
     private void sendLocations() {
-        if (auth.getCurrentUser() != null) {
+        if (auth.getCurrentUser() != null && trackedLocationsMap != null && !trackedLocationsMap.isEmpty()) {
             locationsRef.setValue(trackedLocationsMap);
             // Aici testez trimitere HashMap-ului la back-end
             Log.e(TAG, "Sent Locations.....");

@@ -16,6 +16,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.function.Consumer;
 
 /**
  * This is a singleton class used to make REST calls.
@@ -45,6 +46,10 @@ public class RequestOperations {
     // Requests for String
     public void postRequest(String url) {
         doStringRequest(url, Request.Method.POST);
+    }
+
+    public <T> void postRequestWithResponseHandler(String url, Consumer<T> responseHandler) {
+        doStringRequestWithResponseHandler(url, Request.Method.POST, responseHandler);
     }
 
     public void getRequest(String url) {
@@ -166,5 +171,20 @@ public class RequestOperations {
                 );
         // Add the request to the RequestQueue.
         requestQueue.add(stringRequest);
+    }
+
+    private <T> void doStringRequestWithResponseHandler(String url, int method, Consumer<T> responseHandler) {
+        StringRequest jsonRequest = new StringRequest
+                (method, url,
+                        response -> {
+                            responseHandler.accept((T) response);
+                        },
+                        error -> {
+                            // TODO: Handle error
+                            Log.e(TAG, error.toString());
+                        }
+                );
+        // Add the request to the RequestQueue.
+        requestQueue.add(jsonRequest);
     }
 }
