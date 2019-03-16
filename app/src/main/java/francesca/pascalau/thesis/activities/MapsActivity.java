@@ -42,6 +42,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
 
+import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,8 +86,8 @@ public class MapsActivity extends AppCompatActivity
      * @see #onRequestPermissionsResult(int, String[], int[])
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
-    private static ArrayList<LatLng> trackedLocations = new ArrayList<>();
-    private static HashMap<String, ArrayList<Position>> trackedLocationsMap = new HashMap<>();
+    private static List<LatLng> trackedLocations = new ArrayList<>();
+    private static HashMap<String, List<Position>> trackedLocationsMap = new HashMap<>();
     private static int id = 0;
     private Polygon mMutablePolygon;
     private LocationRequest mLocationRequest;
@@ -145,11 +146,11 @@ public class MapsActivity extends AppCompatActivity
             @RequiresApi(api = Build.VERSION_CODES.N)
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                GenericTypeIndicator<HashMap<String, ArrayList<Position>>> genericTypeIndicator =
-                        new GenericTypeIndicator<HashMap<String, ArrayList<Position>>>() {
+                GenericTypeIndicator<HashMap<String, List<Position>>> genericTypeIndicator =
+                        new GenericTypeIndicator<HashMap<String, List<Position>>>() {
                         };
 
-                HashMap<String, ArrayList<Position>> value =
+                HashMap<String, List<Position>> value =
                         dataSnapshot.getValue(genericTypeIndicator);
                 Log.e(TAG, "Value is: " + value);
 
@@ -378,7 +379,7 @@ public class MapsActivity extends AppCompatActivity
                     .addAll(trackedLocations)
             );
 
-            Integer area = (int) SphericalUtil.computeArea(polygon.getPoints());
+            BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
             polygon.setTag(area);
             mMap.addMarker(new MarkerOptions()
                     .title("Area: " + area.toString() + " m\u00B2")
@@ -405,6 +406,9 @@ public class MapsActivity extends AppCompatActivity
 
                 Log.e(TAG, mySurface.toString());
                 Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
+
+                trackedLocationsMap.put(mySurface.getId_surface().toString(), mySurface.getCoordinates());
+                sendLocations();
             };
 
             Surface surface = new Surface(area, positions);
@@ -416,7 +420,6 @@ public class MapsActivity extends AppCompatActivity
              * End of temporary request
              */
 
-            sendLocations();
             stopLocationUpdates();
             trackedLocations = new ArrayList<>();
 
@@ -435,8 +438,8 @@ public class MapsActivity extends AppCompatActivity
     }
 
     private void drawPreviousAreas() {
-        for (Map.Entry<String, ArrayList<Position>> surface : trackedLocationsMap.entrySet()) {
-            ArrayList<Position> oldPositions = surface.getValue();
+        for (Map.Entry<String, List<Position>> surface : trackedLocationsMap.entrySet()) {
+            List<Position> oldPositions = surface.getValue();
             ArrayList<LatLng> positions = new ArrayList<>();
             for (Position position : oldPositions) {
                 positions.add(new LatLng(position.getLatitude(), position.getLongitude()));
