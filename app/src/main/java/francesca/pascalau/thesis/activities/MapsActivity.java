@@ -1,8 +1,11 @@
 package francesca.pascalau.thesis.activities;
 
 import android.Manifest;
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -39,6 +42,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
 import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
 
@@ -96,6 +100,7 @@ public class MapsActivity extends AppCompatActivity
     private String mLastUpdateTime;
     private FirebaseAuth auth = FirebaseAuth.getInstance();
     private FirebaseDatabase database = FirebaseDatabase.getInstance();
+    private FirebaseStorage storage = FirebaseStorage.getInstance("gs://cartare-teren.appspot.com");
     private DatabaseReference locationsRef = database.getReference("locations");
     /**
      * Flag indicating whether a requested permission has been denied after returning in
@@ -110,16 +115,11 @@ public class MapsActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        SupportMapFragment mapFragment =
-                (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        initializeMapsActivity(savedInstanceState);
+    }
 
-        // To save the map
-        if (savedInstanceState == null) {
-            // First incarnation of this activity.
-            mapFragment.setRetainInstance(true);
-        }
-
-        mapFragment.getMapAsync(this);
+    private void initializeMapsActivity(Bundle savedInstanceState) {
+        initializeMapFragment(savedInstanceState);
 
         // Location stuff
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -130,17 +130,7 @@ public class MapsActivity extends AppCompatActivity
 
         createLocationRequest();
 
-        Button locationStartButton = findViewById(R.id.location_start);
-
-        locationStartButton.setOnClickListener(v -> onLocationStartButton());
-
-        Button locationStopButton = findViewById(R.id.location_stop);
-
-        locationStopButton.setOnClickListener(v -> onLocationStopButton());
-
-        Button goBackButton = findViewById(R.id.go_back);
-
-        goBackButton.setOnClickListener(v -> onGoBackButton());
+        createButtons();
 
         locationsRef.addValueEventListener(new ValueEventListener() {
             @RequiresApi(api = Build.VERSION_CODES.N)
@@ -167,9 +157,34 @@ public class MapsActivity extends AppCompatActivity
                 Log.e(TAG, "Failed to read value.", error.toException());
             }
         });
-
     }
 
+    private void initializeMapFragment(Bundle savedInstanceState) {
+        SupportMapFragment mapFragment =
+                (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+
+        // To save the map
+        if (savedInstanceState == null) {
+            // First incarnation of this activity.
+            mapFragment.setRetainInstance(true);
+        }
+
+        mapFragment.getMapAsync(this);
+    }
+
+    private void createButtons() {
+        Button locationStartButton = findViewById(R.id.location_start);
+
+        locationStartButton.setOnClickListener(v -> onLocationStartButton());
+
+        Button locationStopButton = findViewById(R.id.location_stop);
+
+        locationStopButton.setOnClickListener(v -> onLocationStopButton());
+
+        Button goBackButton = findViewById(R.id.go_back);
+
+        goBackButton.setOnClickListener(v -> onGoBackButton());
+    }
 
     @Override
     public void onMapReady(GoogleMap map) {
@@ -333,6 +348,7 @@ public class MapsActivity extends AppCompatActivity
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
         Log.d(TAG, "Location update stopped .......................");
+        trackedLocations = new ArrayList<>();
     }
 
 
@@ -374,58 +390,82 @@ public class MapsActivity extends AppCompatActivity
             trackedLocations.add(trackedLocations.get(0));
             Log.e(TAG, trackedLocations.toString());
 
-            Polygon polygon = mMap.addPolygon(new PolygonOptions()
-                    .clickable(true)
-                    .addAll(trackedLocations)
-            );
+            BigDecimal area = getAreaAndUpdateMap();
 
-            BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
-            polygon.setTag(area);
-            mMap.addMarker(new MarkerOptions()
-                    .title("Area: " + area.toString() + " m\u00B2")
-                    .position(trackedLocations.get(0)));
-            Log.e(TAG, "computeArea " + area);
-
-            // Add to the collective hash map
             Log.e(TAG, area + " -- " + trackedLocations);
 
-            ArrayList<Position> positions = new ArrayList<>();
-            for (LatLng location : trackedLocations) {
-                positions.add(new Position(location.latitude, location.longitude));
-            }
+            ArrayList<Position> positions = getPositionsFromLatLng();
 
-            /**
-             * Temporary request to save locations
-             * TODO: Move from here
-             */
-            String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
-            RequestOperations operations = RequestOperations.getInstance(this);
-
-            Consumer<String> consumer = surface -> {
-                Surface mySurface = new Gson().fromJson(surface, Surface.class);
-
-                Log.e(TAG, mySurface.toString());
-                Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
-
-                trackedLocationsMap.put(mySurface.getId_surface().toString(), mySurface.getCoordinates());
-                sendLocations();
-            };
-
-            Surface surface = new Surface(area, positions);
-            operations.postRequestForObject(urlSaveSurface, surface, consumer);
-
-            /*operations.getRequestForArray(url2, locations);*/
-
-            /**
-             * End of temporary request
-             */
+            doRequests(area, positions);
 
             stopLocationUpdates();
-            trackedLocations = new ArrayList<>();
 
             findViewById(R.id.location_start).setVisibility(View.VISIBLE);
             findViewById(R.id.location_stop).setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * This method draws a polygon on the Google Maps based on the trackedLocations.
+     * Adds a marker with the determined area to the polygon.
+     *
+     * @return area of the polygon
+     */
+    private BigDecimal getAreaAndUpdateMap() {
+        Polygon polygon = mMap.addPolygon(new PolygonOptions()
+                .clickable(true)
+                .addAll(trackedLocations)
+        );
+
+        BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
+        polygon.setTag(area);
+        mMap.addMarker(new MarkerOptions()
+                .title("Area: " + area.toString() + " m\u00B2")
+                .position(trackedLocations.get(0)));
+        Log.e(TAG, "computeArea " + area);
+        return area;
+    }
+
+    /**
+     * This method does asynchronous requests to backend and Firebase to save surfaces and coordinates.
+     *
+     * @param area      the value of the polygon identified on the map
+     * @param positions the coordinates of the calculated area
+     */
+    private void doRequests(BigDecimal area, ArrayList<Position> positions) {
+        String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
+        RequestOperations operations = RequestOperations.getInstance(this);
+
+        /**
+         * A consumer that handles the response from backend
+         */
+        Consumer<String> consumer = surface -> {
+            Surface mySurface = new Gson().fromJson(surface, Surface.class);
+
+            Log.e(TAG, mySurface.toString());
+            Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
+
+            trackedLocationsMap.put(mySurface.getId_surface().toString(), mySurface.getCoordinates());
+            sendLocations();
+
+            Context context = getApplicationContext();
+            Uri uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE +
+                    "://" + context.getResources().getResourcePackageName(R.drawable.bac)
+                    + '/' + context.getResources().getResourceTypeName(R.drawable.bac)
+                    + '/' + context.getResources().getResourceEntryName(R.drawable.bac));
+            storage.getReference().child("stadium.png").putFile(uri);
+        };
+
+        Surface surface = new Surface(area, positions);
+        operations.postRequestForObject(urlSaveSurface, surface, consumer);
+    }
+
+    private ArrayList<Position> getPositionsFromLatLng() {
+        ArrayList<Position> positions = new ArrayList<>();
+        for (LatLng location : trackedLocations) {
+            positions.add(new Position(location.latitude, location.longitude));
+        }
+        return positions;
     }
 
     private void onGoBackButton() {
@@ -451,7 +491,7 @@ public class MapsActivity extends AppCompatActivity
                         .addAll(positions)
                 );
 
-                Integer area = (int) SphericalUtil.computeArea(polygon.getPoints());
+                BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
                 polygon.setTag(area);
                 mMap.addMarker(new MarkerOptions()
                         .title("Area: " + area.toString() + " m\u00B2")
@@ -463,13 +503,10 @@ public class MapsActivity extends AppCompatActivity
     private void sendLocations() {
         if (auth.getCurrentUser() != null && trackedLocationsMap != null && !trackedLocationsMap.isEmpty()) {
             locationsRef.setValue(trackedLocationsMap);
-            // Aici testez trimitere HashMap-ului la back-end
             Log.e(TAG, "Sent Locations.....");
         } else {
             Log.e(TAG, "Could not sent locations (user not logged in)");
             Toast.makeText(this, "Could not sent locations (user not logged in)", Toast.LENGTH_SHORT).show();
         }
-
-
     }
 }
