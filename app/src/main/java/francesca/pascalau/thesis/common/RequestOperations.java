@@ -1,10 +1,13 @@
 package francesca.pascalau.thesis.common;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.util.Log;
+import android.widget.ImageView;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.ImageRequest;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
@@ -16,6 +19,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.function.Consumer;
 
 /**
@@ -116,6 +120,27 @@ public class RequestOperations {
         JSONArray array = getJsonArray(list);
 
         doJsonArrayRequest(url, array, Request.Method.DELETE);
+    }
+
+    // For Image type
+    public <T> void getRequestForImage(String url, HashMap<String, String> params, Consumer<T> responseHandler) {
+
+        String uri = buildUriWithParams(url, params);
+        doImageRequest(uri, responseHandler);
+    }
+
+    /**
+     * This method builds the uri with necessary parameters to do a request
+     *
+     * @param url    represents the uri without individual params for each request
+     * @param params necessary details about images requests
+     * @return the complete uri for an image request
+     */
+    private String buildUriWithParams(String url, HashMap<String, String> params) {
+        StringBuilder uri = new StringBuilder(url);
+        uri.append("?");
+        params.forEach((key, value) -> uri.append(String.format("%s=%s&", key, value)));
+        return uri.toString();
     }
 
     private <T> JSONArray getJsonArray(ArrayList<T> list) {
@@ -223,9 +248,7 @@ public class RequestOperations {
     private <T> void doStringRequest(String url, int method, Consumer<T> responseHandler) {
         StringRequest jsonRequest = new StringRequest
                 (method, url,
-                        response -> {
-                            responseHandler.accept((T) response);
-                        },
+                        response -> responseHandler.accept((T) response),
                         error -> {
                             // TODO: Handle error
                             Log.e(TAG, error.toString());
@@ -233,5 +256,30 @@ public class RequestOperations {
                 );
         // Add the request to the RequestQueue.
         requestQueue.add(jsonRequest);
+    }
+
+    /**
+     * This method creates a request for an image to a specified url
+     * ImageRequest with specified parameters (url, responseHandler, width, height, scaleType, Config, error)
+     * The response is of Bitmap type
+     *
+     * @param url             to do the request
+     * @param responseHandler consumer that manages the response of the request
+     * @param <T>
+     */
+    private <T> void doImageRequest(String url, Consumer<T> responseHandler) {
+        ImageRequest imageRequest = new ImageRequest(
+                url,
+                (Bitmap response) -> responseHandler.accept((T) response),
+                400,
+                400,
+                ImageView.ScaleType.CENTER,
+                Bitmap.Config.ALPHA_8,
+                error -> {
+                    //TODO: Handle error
+                    Log.e(TAG, error.toString());
+                }
+        );
+        requestQueue.add(imageRequest);
     }
 }

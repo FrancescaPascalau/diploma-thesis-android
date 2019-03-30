@@ -1,11 +1,9 @@
 package francesca.pascalau.thesis.activities;
 
 import android.Manifest;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.location.Location;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -43,9 +41,11 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -54,6 +54,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 import francesca.pascalau.thesis.R;
@@ -396,7 +397,7 @@ public class MapsActivity extends AppCompatActivity
 
             ArrayList<Position> positions = getPositionsFromLatLng();
 
-            doRequests(area, positions);
+            doSurfaceRequests(area, positions);
 
             stopLocationUpdates();
 
@@ -432,7 +433,7 @@ public class MapsActivity extends AppCompatActivity
      * @param area      the value of the polygon identified on the map
      * @param positions the coordinates of the calculated area
      */
-    private void doRequests(BigDecimal area, ArrayList<Position> positions) {
+    private void doSurfaceRequests(BigDecimal area, ArrayList<Position> positions) {
         String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
         RequestOperations operations = RequestOperations.getInstance(this);
 
@@ -448,16 +449,58 @@ public class MapsActivity extends AppCompatActivity
             trackedLocationsMap.put(mySurface.getId_surface().toString(), mySurface.getCoordinates());
             sendLocations();
 
-            Context context = getApplicationContext();
-            Uri uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE +
-                    "://" + context.getResources().getResourcePackageName(R.drawable.bac)
-                    + '/' + context.getResources().getResourceTypeName(R.drawable.bac)
-                    + '/' + context.getResources().getResourceEntryName(R.drawable.bac));
-            storage.getReference().child("stadium.png").putFile(uri);
+            /**
+             *  This method has a consumer to process the response for images requests
+             */
+            doStreetViewImageRequest(operations, mySurface);
         };
 
         Surface surface = new Surface(area, positions);
         operations.postRequestForObject(urlSaveSurface, surface, consumer);
+    }
+
+    private void doStreetViewImageRequest(RequestOperations operations, Surface mySurface) {
+        String getStreetViewImage = "https://maps.googleapis.com/maps/api/streetview";
+
+        /**
+         * This consumer is called from the above consumer for image response
+         */
+        Consumer<Bitmap> consumerBitmap = image -> {
+            Log.e(TAG, "Image received." + image.getByteCount());
+
+//            Context context = getApplicationContext();
+//            Uri uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE +
+//                    "://" + context.getResources().getResourcePackageName(R.drawable.bac)
+//                    + '/' + context.getResources().getResourceTypeName(R.drawable.bac)
+//                    + '/' + context.getResources().getResourceEntryName(R.drawable.bac));
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            image.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+            byte[] data = baos.toByteArray();
+
+            final StorageReference storageReference = storage.getReference()
+                    .child(
+                            String.format("%s=>%s[%s]",
+                                    mySurface.getCoordinates().get(0).getLatitude(),
+                                    mySurface.getCoordinates().get(0).getLongitude(),
+                                    UUID.randomUUID().toString()
+                            )
+                    );
+            storageReference.putBytes(data);
+        };
+
+        /**
+         * Defining the params for the image requests
+         */
+        HashMap<String, String> params = new HashMap<>();
+        params.put("size", "400x400");
+        params.put("location", mySurface.getCoordinates().get(0).getLatitude() + ", " + mySurface.getCoordinates().get(0).getLongitude());
+        params.put("fov", "120");
+        params.put("heading", "0");
+        params.put("pitch", "0");
+        params.put("key", "AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs");
+
+        operations.getRequestForImage(getStreetViewImage, params, consumerBitmap);
     }
 
     private ArrayList<Position> getPositionsFromLatLng() {

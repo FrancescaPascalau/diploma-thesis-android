@@ -271,5 +271,6 @@
     <string name="forgot_password_msg">We just need your registered Email Id to send password reset instructions.</string>
     <string name="title_activity_reset_password">ResetPassword</string>
     <string name="title_activity_maps2">Map</string>
+    <string name="maps_key">AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs</string>
 
 </resources>
