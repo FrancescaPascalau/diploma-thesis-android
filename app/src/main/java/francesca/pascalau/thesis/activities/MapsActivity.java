@@ -11,6 +11,7 @@ import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -60,8 +61,15 @@ import java.util.function.Consumer;
 import francesca.pascalau.thesis.R;
 import francesca.pascalau.thesis.common.PermissionUtils;
 import francesca.pascalau.thesis.common.Position;
+import francesca.pascalau.thesis.common.Price;
 import francesca.pascalau.thesis.common.RequestOperations;
 import francesca.pascalau.thesis.common.Surface;
+import francesca.pascalau.thesis.common.VisionFeature;
+import francesca.pascalau.thesis.common.VisionImage;
+import francesca.pascalau.thesis.common.VisionLabelAnnotation;
+import francesca.pascalau.thesis.common.VisionRequest;
+import francesca.pascalau.thesis.common.VisionRequestBody;
+import francesca.pascalau.thesis.common.VisionResponseBody;
 
 public class MapsActivity extends AppCompatActivity
         implements
@@ -429,6 +437,7 @@ public class MapsActivity extends AppCompatActivity
 
     /**
      * This method does asynchronous requests to backend and Firebase to save surfaces and coordinates.
+     * The requests are asynchronous so the application doesn't wait until it receives a response and can go forward to the next steps
      *
      * @param area      the value of the polygon identified on the map
      * @param positions the coordinates of the calculated area
@@ -446,11 +455,11 @@ public class MapsActivity extends AppCompatActivity
             Log.e(TAG, mySurface.toString());
             Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
 
-            trackedLocationsMap.put(mySurface.getId_surface().toString(), mySurface.getCoordinates());
+            trackedLocationsMap.put(mySurface.getIdSurface().toString(), mySurface.getCoordinates());
             sendLocations();
 
             /**
-             *  This method has a consumer to process the response for images requests
+             *  This method has a consumer and it is called to process the response for images requests
              */
             doStreetViewImageRequest(operations, mySurface);
         };
@@ -463,7 +472,7 @@ public class MapsActivity extends AppCompatActivity
         String getStreetViewImage = "https://maps.googleapis.com/maps/api/streetview";
 
         /**
-         * This consumer is called from the above consumer for image response
+         * This consumer is called from the above consumer for image response handling from backend
          */
         Consumer<Bitmap> consumerBitmap = image -> {
             Log.e(TAG, "Image received." + image.getByteCount());
@@ -487,6 +496,9 @@ public class MapsActivity extends AppCompatActivity
                             )
                     );
             storageReference.putBytes(data);
+
+            doVisionRequests(operations, data);
+
         };
 
         /**
@@ -501,6 +513,31 @@ public class MapsActivity extends AppCompatActivity
         params.put("key", "AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs");
 
         operations.getRequestForImage(getStreetViewImage, params, consumerBitmap);
+    }
+
+    private void doVisionRequests(RequestOperations operations, byte[] data) {
+
+        String getVisionLabels = "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs";
+        String getPriceByType = "http://192.168.0.167:1997/v1/prices/findByType/";
+
+        Consumer<String> visionResponseConsumer = visionResponse -> {
+            VisionResponseBody response = new Gson().fromJson(visionResponse, VisionResponseBody.class);
+
+            VisionLabelAnnotation label = response.getResponses().get(0).getLabelAnnotations().get(0);
+
+            Consumer<String> priceConsumer = priceString -> {
+                Price price = new Gson().fromJson(priceString, Price.class);
+            };
+            operations.getRequestForObject(getPriceByType + label.getDescription(), priceConsumer);
+        };
+
+
+        String imageContent = Base64.encodeToString(data, Base64.DEFAULT);
+        VisionFeature feature = new VisionFeature(50, "LABEL_DETECTION");
+        VisionImage visionImage = new VisionImage(imageContent);
+        VisionRequest requests = new VisionRequest(Arrays.asList(feature), visionImage);
+        VisionRequestBody body = new VisionRequestBody(Arrays.asList(requests));
+        operations.postRequestForObject(getVisionLabels, body, visionResponseConsumer);
     }
 
     private ArrayList<Position> getPositionsFromLatLng() {

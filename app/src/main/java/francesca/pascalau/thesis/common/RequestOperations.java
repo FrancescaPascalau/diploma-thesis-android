@@ -35,7 +35,7 @@ public class RequestOperations {
     private RequestQueue requestQueue;
     private Context context;
 
-    //Private Constructor to don't create a new instance of class
+    //Private Constructor to not create a new instance of class
     private RequestOperations(Context context) {
         this.context = context;
         this.requestQueue = Volley.newRequestQueue(context.getApplicationContext());
@@ -87,6 +87,10 @@ public class RequestOperations {
 
     public void getRequestForObject(String url) {
         doJsonObjectRequest(url, null, Request.Method.GET);
+    }
+
+    public void getRequestForObject(String url, Consumer<String> responseHandler) {
+        doJsonObjectRequest(url, null, Request.Method.GET, responseHandler);
     }
 
     public void putRequestForObject(String url) {

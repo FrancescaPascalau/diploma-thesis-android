@@ -7,9 +7,10 @@ import java.util.UUID;
 
 public class Surface implements Serializable {
 
-    private UUID id_surface;
+    private UUID idSurface;
     private BigDecimal area;
     private List<Position> coordinates;
+    private Price price;
 
     public Surface(BigDecimal area, List<Position> coordinates) {
         this.area = area;
@@ -21,18 +22,33 @@ public class Surface implements Serializable {
         this.coordinates = coordinates;
     }
 
-    public Surface(UUID id_surface, BigDecimal area, List<Position> coordinates) {
-        this.id_surface = id_surface;
+    public Surface(UUID idSurface, BigDecimal area, List<Position> coordinates, Price price) {
+        this.idSurface = idSurface;
+        this.area = area;
+        this.coordinates = coordinates;
+        this.price = price;
+    }
+
+    public Surface(UUID idSurface, BigDecimal area, List<Position> coordinates) {
+        this.idSurface = idSurface;
         this.area = area;
         this.coordinates = coordinates;
     }
 
-    public UUID getId_surface() {
-        return id_surface;
+    public Price getPrice() {
+        return price;
     }
 
-    public void setId_surface(UUID id_surface) {
-        this.id_surface = id_surface;
+    public void setPrice(Price price) {
+        this.price = price;
+    }
+
+    public UUID getIdSurface() {
+        return idSurface;
+    }
+
+    public void setIdSurface(UUID idSurface) {
+        this.idSurface = idSurface;
     }
 
     public BigDecimal getArea() {
@@ -54,8 +70,9 @@ public class Surface implements Serializable {
     @Override
     public String toString() {
         return "Surface{" +
-                "id_surface=" + id_surface +
+                "idSurface=" + idSurface +
                 ", area=" + area +
+                ", price=" + price +
                 '}';
     }
 }
