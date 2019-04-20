@@ -472,7 +472,7 @@ public class MapsActivity extends AppCompatActivity
         String getStreetViewImage = "https://maps.googleapis.com/maps/api/streetview";
 
         /**
-         * This consumer is called from the above consumer for image response handling from backend
+         * This consumer is called from the above consumer for image response handling from url
          */
         Consumer<Bitmap> consumerBitmap = image -> {
             Log.e(TAG, "Image received." + image.getByteCount());
@@ -497,8 +497,7 @@ public class MapsActivity extends AppCompatActivity
                     );
             storageReference.putBytes(data);
 
-            doVisionRequests(operations, data);
-
+            doVisionRequests(operations, data, mySurface);
         };
 
         /**
@@ -515,7 +514,7 @@ public class MapsActivity extends AppCompatActivity
         operations.getRequestForImage(getStreetViewImage, params, consumerBitmap);
     }
 
-    private void doVisionRequests(RequestOperations operations, byte[] data) {
+    private void doVisionRequests(RequestOperations operations, byte[] data, Surface mySurface) {
 
         String getVisionLabels = "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs";
         String getPriceByType = "http://192.168.0.167:1997/v1/prices/findByType/";
@@ -527,10 +526,14 @@ public class MapsActivity extends AppCompatActivity
 
             Consumer<String> priceConsumer = priceString -> {
                 Price price = new Gson().fromJson(priceString, Price.class);
-            };
-            operations.getRequestForObject(getPriceByType + label.getDescription(), priceConsumer);
-        };
 
+                BigDecimal priceForArea = mySurface.getArea().multiply(price.getValue());
+                Toast.makeText(this, "The price is: " + priceForArea.toString(), Toast.LENGTH_SHORT).show();
+            };
+
+            String labelDescription = label.getDescription().replaceAll(" ", "-");
+            operations.getRequestForObject(getPriceByType + labelDescription, priceConsumer);
+        };
 
         String imageContent = Base64.encodeToString(data, Base64.DEFAULT);
         VisionFeature feature = new VisionFeature(50, "LABEL_DETECTION");
