@@ -54,16 +54,16 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 import francesca.pascalau.thesis.R;
 import francesca.pascalau.thesis.common.PermissionUtils;
 import francesca.pascalau.thesis.common.Position;
-import francesca.pascalau.thesis.common.Price;
 import francesca.pascalau.thesis.common.RequestOperations;
 import francesca.pascalau.thesis.common.Surface;
+import francesca.pascalau.thesis.common.SurfaceFirebase;
+import francesca.pascalau.thesis.common.Type;
 import francesca.pascalau.thesis.common.VisionFeature;
 import francesca.pascalau.thesis.common.VisionImage;
 import francesca.pascalau.thesis.common.VisionLabelAnnotation;
@@ -100,7 +100,7 @@ public class MapsActivity extends AppCompatActivity
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
     private static List<LatLng> trackedLocations = new ArrayList<>();
-    private static HashMap<String, List<Position>> trackedLocationsMap = new HashMap<>();
+    private static List<SurfaceFirebase> trackedSurfaces = new ArrayList<>();
     private static int id = 0;
     private Polygon mMutablePolygon;
     private LocationRequest mLocationRequest;
@@ -110,7 +110,7 @@ public class MapsActivity extends AppCompatActivity
     private FirebaseAuth auth = FirebaseAuth.getInstance();
     private FirebaseDatabase database = FirebaseDatabase.getInstance();
     private FirebaseStorage storage = FirebaseStorage.getInstance("gs://cartare-teren.appspot.com");
-    private DatabaseReference locationsRef = database.getReference("locations");
+    private DatabaseReference surfacesRef = database.getReference("surfaces");
     /**
      * Flag indicating whether a requested permission has been denied after returning in
      * {@link #onRequestPermissionsResult(int, String[], int[])}.
@@ -141,22 +141,22 @@ public class MapsActivity extends AppCompatActivity
 
         createButtons();
 
-        locationsRef.addValueEventListener(new ValueEventListener() {
+        surfacesRef.addValueEventListener(new ValueEventListener() {
             @RequiresApi(api = Build.VERSION_CODES.N)
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                GenericTypeIndicator<HashMap<String, List<Position>>> genericTypeIndicator =
-                        new GenericTypeIndicator<HashMap<String, List<Position>>>() {
+                GenericTypeIndicator<List<SurfaceFirebase>> genericTypeIndicator =
+                        new GenericTypeIndicator<List<SurfaceFirebase>>() {
                         };
 
-                HashMap<String, List<Position>> value =
+                List<SurfaceFirebase> value =
                         dataSnapshot.getValue(genericTypeIndicator);
                 Log.e(TAG, "Value is: " + value);
 
                 if (value != null) {
-                    trackedLocationsMap = value;
-                    Log.e(TAG, "Tracked Map is: " + trackedLocationsMap);
-                    drawPreviousAreas();
+                    trackedSurfaces = value;
+                    Log.e(TAG, "Tracked Surface is: " + trackedSurfaces);
+                    drawPreviousAreas2();
                 }
             }
 
@@ -399,7 +399,7 @@ public class MapsActivity extends AppCompatActivity
             trackedLocations.add(trackedLocations.get(0));
             Log.e(TAG, trackedLocations.toString());
 
-            BigDecimal area = getAreaAndUpdateMap();
+            BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(trackedLocations));
 
             Log.e(TAG, area + " -- " + trackedLocations);
 
@@ -416,23 +416,24 @@ public class MapsActivity extends AppCompatActivity
 
     /**
      * This method draws a polygon on the Google Maps based on the trackedLocations.
-     * Adds a marker with the determined area to the polygon.
-     *
-     * @return area of the polygon
+     * Adds a marker with the determined area & price to the polygon.
      */
-    private BigDecimal getAreaAndUpdateMap() {
+    private void updateMap(Surface surface) {
+        List<LatLng> latLngs = new ArrayList<>();
+        surface.getCoordinates().forEach(coordinate ->
+                latLngs.add(new LatLng(coordinate.getLatitude(), coordinate.getLongitude())));
         Polygon polygon = mMap.addPolygon(new PolygonOptions()
                 .clickable(true)
-                .addAll(trackedLocations)
+                .addAll(latLngs)
         );
 
-        BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
-        polygon.setTag(area);
+        polygon.setTag(surface.getArea());
         mMap.addMarker(new MarkerOptions()
-                .title("Area: " + area.toString() + " m\u00B2")
-                .position(trackedLocations.get(0)));
-        Log.e(TAG, "computeArea " + area);
-        return area;
+                .title(String.format("Area: %.2f m² - Price: %.2f €",
+                        surface.getArea(),
+                        surface.getPrice()
+                ))
+                .position(latLngs.get(0)));
     }
 
     /**
@@ -455,8 +456,9 @@ public class MapsActivity extends AppCompatActivity
             Log.e(TAG, mySurface.toString());
             Toast.makeText(this, mySurface.toString(), Toast.LENGTH_LONG);
 
-            trackedLocationsMap.put(mySurface.getIdSurface().toString(), mySurface.getCoordinates());
-            sendLocations();
+            /*trackedLocationsMap.put(mySurface.getIdSurface().toString(), mySurface.getCoordinates());
+            trackedSurfaces.add(SurfaceFirebase.fromSurface(mySurface));
+            sendLocations();*/
 
             /**
              *  This method has a consumer and it is called to process the response for images requests
@@ -517,22 +519,30 @@ public class MapsActivity extends AppCompatActivity
     private void doVisionRequests(RequestOperations operations, byte[] data, Surface mySurface) {
 
         String getVisionLabels = "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs";
-        String getPriceByType = "http://192.168.0.167:1997/v1/prices/findByType/";
+        String getPriceByType = "http://192.168.0.167:1997/v1/types/findByType/";
+        String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
 
         Consumer<String> visionResponseConsumer = visionResponse -> {
             VisionResponseBody response = new Gson().fromJson(visionResponse, VisionResponseBody.class);
 
             VisionLabelAnnotation label = response.getResponses().get(0).getLabelAnnotations().get(0);
 
-            Consumer<String> priceConsumer = priceString -> {
-                Price price = new Gson().fromJson(priceString, Price.class);
+            Consumer<String> typeConsumer = typeString -> {
+                Type type = new Gson().fromJson(typeString, Type.class);
 
-                BigDecimal priceForArea = mySurface.getArea().multiply(price.getValue());
-                Toast.makeText(this, "The price is: " + priceForArea.toString(), Toast.LENGTH_SHORT).show();
+                BigDecimal priceForArea = mySurface.getArea().multiply(type.getValue());
+                mySurface.setPrice(priceForArea);
+                mySurface.setType(type);
+                operations.postRequestForObject(urlSaveSurface, mySurface);
+                Toast.makeText(this, "The price is: " + priceForArea.toString() + " €", Toast.LENGTH_SHORT).show();
+
+                updateMap(mySurface);
+                trackedSurfaces.add(SurfaceFirebase.fromSurface(mySurface));
+                sendLocations();
             };
 
             String labelDescription = label.getDescription().replaceAll(" ", "-");
-            operations.getRequestForObject(getPriceByType + labelDescription, priceConsumer);
+            operations.getRequestForObject(getPriceByType + labelDescription, typeConsumer);
         };
 
         String imageContent = Base64.encodeToString(data, Base64.DEFAULT);
@@ -560,9 +570,9 @@ public class MapsActivity extends AppCompatActivity
         }
     }
 
-    private void drawPreviousAreas() {
-        for (Map.Entry<String, List<Position>> surface : trackedLocationsMap.entrySet()) {
-            List<Position> oldPositions = surface.getValue();
+    private void drawPreviousAreas2() {
+        for (SurfaceFirebase surface : trackedSurfaces) {
+            List<Position> oldPositions = surface.getCoordinates();
             ArrayList<LatLng> positions = new ArrayList<>();
             for (Position position : oldPositions) {
                 positions.add(new LatLng(position.getLatitude(), position.getLongitude()));
@@ -571,21 +581,22 @@ public class MapsActivity extends AppCompatActivity
             if (positions != null) {
                 Polygon polygon = mMap.addPolygon(new PolygonOptions()
                         .clickable(true)
-                        .addAll(positions)
-                );
+                        .addAll(positions));
 
-                BigDecimal area = BigDecimal.valueOf(SphericalUtil.computeArea(polygon.getPoints()));
-                polygon.setTag(area);
+                polygon.setTag(surface.getArea());
+
                 mMap.addMarker(new MarkerOptions()
-                        .title("Area: " + area.toString() + " m\u00B2")
+                        .title(String.format("Area: %.2f m\u00b2 - Price: %.2f \u20ac",
+                                surface.getArea(),
+                                surface.getPrice()))
                         .position(positions.get(0)));
             }
         }
     }
 
     private void sendLocations() {
-        if (auth.getCurrentUser() != null && trackedLocationsMap != null && !trackedLocationsMap.isEmpty()) {
-            locationsRef.setValue(trackedLocationsMap);
+        if (auth.getCurrentUser() != null && trackedSurfaces != null && !trackedSurfaces.isEmpty()) {
+            surfacesRef.setValue(trackedSurfaces);
             Log.e(TAG, "Sent Locations.....");
         } else {
             Log.e(TAG, "Could not sent locations (user not logged in)");

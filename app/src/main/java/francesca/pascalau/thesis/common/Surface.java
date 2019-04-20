@@ -9,8 +9,9 @@ public class Surface implements Serializable {
 
     private UUID idSurface;
     private BigDecimal area;
+    private BigDecimal price;
     private List<Position> coordinates;
-    private Price price;
+    private Type type;
 
     public Surface(BigDecimal area, List<Position> coordinates) {
         this.area = area;
@@ -22,11 +23,19 @@ public class Surface implements Serializable {
         this.coordinates = coordinates;
     }
 
-    public Surface(UUID idSurface, BigDecimal area, List<Position> coordinates, Price price) {
+    public Surface(UUID idSurface, BigDecimal area, List<Position> coordinates, Type type) {
         this.idSurface = idSurface;
         this.area = area;
         this.coordinates = coordinates;
+        this.type = type;
+    }
+
+    public Surface(UUID idSurface, BigDecimal area, BigDecimal price, List<Position> coordinates, Type type) {
+        this.idSurface = idSurface;
+        this.area = area;
         this.price = price;
+        this.coordinates = coordinates;
+        this.type = type;
     }
 
     public Surface(UUID idSurface, BigDecimal area, List<Position> coordinates) {
@@ -35,12 +44,12 @@ public class Surface implements Serializable {
         this.coordinates = coordinates;
     }
 
-    public Price getPrice() {
-        return price;
+    public Type getType() {
+        return type;
     }
 
-    public void setPrice(Price price) {
-        this.price = price;
+    public void setType(Type type) {
+        this.type = type;
     }
 
     public UUID getIdSurface() {
@@ -59,6 +68,14 @@ public class Surface implements Serializable {
         this.area = area;
     }
 
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
+
     public List<Position> getCoordinates() {
         return coordinates;
     }
@@ -73,6 +90,7 @@ public class Surface implements Serializable {
                 "idSurface=" + idSurface +
                 ", area=" + area +
                 ", price=" + price +
+                ", type=" + type +
                 '}';
     }
 }
