@@ -8,7 +8,9 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/background">
+        android:background="@drawable/land8"
+        tools:layout_editor_absoluteX="68dp"
+        tools:layout_editor_absoluteY="16dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -18,9 +20,9 @@
             android:layout_marginBottom="100dp"
             android:background="#FFFFFF"
             android:fontFamily="sans-serif"
-            android:text="Area and Price Determination"
+            android:text="GeoWallet"
             android:textColor="#000000"
-            android:textSize="26dp" />
+            android:textSize="50dp" />
 
         <Button
             android:id="@+id/login_button"

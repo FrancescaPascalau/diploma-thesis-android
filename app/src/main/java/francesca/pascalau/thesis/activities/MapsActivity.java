@@ -444,7 +444,7 @@ public class MapsActivity extends AppCompatActivity
      * @param positions the coordinates of the calculated area
      */
     private void doSurfaceRequests(BigDecimal area, ArrayList<Position> positions) {
-        String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
+        String urlSaveSurface = "http://192.168.43.132:1997/v1/surfaces/save";
         RequestOperations operations = RequestOperations.getInstance(this);
 
         /**
@@ -519,8 +519,8 @@ public class MapsActivity extends AppCompatActivity
     private void doVisionRequests(RequestOperations operations, byte[] data, Surface mySurface) {
 
         String getVisionLabels = "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyB59qEeDUhviFleb1Jt_cgQ8uZY9aBkTIs";
-        String getPriceByType = "http://192.168.0.167:1997/v1/types/findByType/";
-        String urlSaveSurface = "http://192.168.0.167:1997/v1/surfaces/save";
+        String getPriceByType = "http://192.168.43.132:1997/v1/types/findByType/";
+        String urlSaveSurface = "http://192.168.43.132:1997/v1/surfaces/save";
 
         Consumer<String> visionResponseConsumer = visionResponse -> {
             VisionResponseBody response = new Gson().fromJson(visionResponse, VisionResponseBody.class);

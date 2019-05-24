@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Area and Price Determination</string>
+    <string name="app_name">GeoWallet</string>
     <string name="title_activity_maps">Map</string>
     <string name="no_demos">No demos</string>
     <string name="play_services_not_installed">Google Play services is not installed on this device.</string>
